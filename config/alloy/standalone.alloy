@@ -1,0 +1,14 @@
+// Pattern A: scrape the standalone tiny-exporter over HTTP.
+prometheus.scrape "tiny" {
+  targets         = [{"__address__" = "tiny-exporter:9100"}]
+  scrape_interval = "15s"
+  forward_to      = [prometheus.remote_write.local.receiver]
+}
+
+prometheus.remote_write "local" {
+  external_labels = {pattern = "standalone"}
+
+  endpoint {
+    url = "http://prometheus:9090/api/v1/write"
+  }
+}

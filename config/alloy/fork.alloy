@@ -1,0 +1,18 @@
+// Pattern B: prometheus.exporter.tiny runs inside the custom Alloy binary.
+prometheus.exporter.tiny "host" {
+  loadavg_path = "/proc/loadavg"
+}
+
+prometheus.scrape "tiny" {
+  targets         = prometheus.exporter.tiny.host.targets
+  scrape_interval = "15s"
+  forward_to      = [prometheus.remote_write.local.receiver]
+}
+
+prometheus.remote_write "local" {
+  external_labels = {pattern = "fork"}
+
+  endpoint {
+    url = "http://prometheus:9090/api/v1/write"
+  }
+}

@@ -1,0 +1,53 @@
+# Host ports are bound to 127.0.0.1 only.
+services:
+  prometheus:
+    image: prom/prometheus:v3.15.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-remote-write-receiver
+    ports:
+      - 127.0.0.1:9090:9090
+
+  grafana:
+    image: grafana/grafana:13.2.4
+    volumes:
+      - ./config/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+    ports:
+      - 127.0.0.1:3000:3000
+    depends_on: [prometheus]
+
+  # Pattern A: standalone exporter + upstream Alloy (prometheus.scrape)
+  tiny-exporter:
+    build: ./standalone-exporter
+    command: [-listen-address=:9100]
+
+  alloy:
+    image: grafana/alloy:v1.21.1
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./config/alloy/standalone.alloy:/etc/alloy/config.alloy:ro
+    ports:
+      - 127.0.0.1:12345:12345
+    depends_on: [prometheus, tiny-exporter]
+
+  # Pattern B: custom Alloy build with prometheus.exporter.tiny
+  # Enable with: docker compose --profile fork up
+  alloy-fork:
+    profiles: [fork]
+    build: ./alloy-fork
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/tmp/alloy
+      - --stability.level=experimental
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./config/alloy/fork.alloy:/etc/alloy/config.alloy:ro
+    ports:
+      - 127.0.0.1:12346:12345
+    depends_on: [prometheus]
